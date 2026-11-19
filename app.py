@@ -63,13 +63,29 @@ AUDIO_BYTES_PER_SEC = 48_000 / 8    # 48kbps CBR → 每秒 6000 字节
 CHUNK_CHARS = 700                   # 单次请求字符数上限（越小越稳，进度也越细）
 MAX_CHARS = 300_000
 
+# 标签格式：分组 · 名字 · 性别 · 特点。前端按第一个「·」前的分组做 optgroup 归类。
+# 说明：Azure 付费语音库里的 zh-CN-YunzeNeural（云泽）在 Edge 免费接口上取不到音频，
+#      实测六个候选名（Yunze/Yunye/Yunfeng/Yunhao/Yunqing/Yunbai）全部 NoAudioReceived，
+#      因此这里只登记 Edge 实际可用的 14 个中文音色。
 VOICES = {
-    "zh-CN-YunxiNeural": "云希 · 男声 · 自然亲和（默认）",
-    "zh-CN-XiaoxiaoNeural": "晓晓 · 女声 · 温柔清晰",
-    "zh-CN-YunyangNeural": "云扬 · 男声 · 新闻播报",
-    "zh-CN-XiaoyiNeural": "晓伊 · 女声 · 年轻活泼",
-    "zh-CN-YunjianNeural": "云健 · 男声 · 浑厚有力",
-    "zh-CN-YunxiaNeural": "云夏 · 男声 · 少年感",
+    # —— 普通话（大陆）——
+    "zh-CN-YunxiNeural":    "普通话 · 云希 · 男声 · 自然亲和（默认）",
+    "zh-CN-XiaoxiaoNeural": "普通话 · 晓晓 · 女声 · 温柔清晰",
+    "zh-CN-YunyangNeural":  "普通话 · 云扬 · 男声 · 新闻播报",
+    "zh-CN-XiaoyiNeural":   "普通话 · 晓伊 · 女声 · 年轻活泼",
+    "zh-CN-YunjianNeural":  "普通话 · 云健 · 男声 · 浑厚有力",
+    "zh-CN-YunxiaNeural":   "普通话 · 云夏 · 男声 · 少年感",
+    # —— 方言 ——
+    "zh-CN-liaoning-XiaobeiNeural": "东北话 · 晓北 · 女声",
+    "zh-CN-shaanxi-XiaoniNeural":   "陕西话 · 晓妮 · 女声",
+    # —— 粤语 ——
+    "zh-HK-HiuMaanNeural":  "粤语 · 晓曼 · 女声",
+    "zh-HK-HiuGaaiNeural":  "粤语 · 晓佳 · 女声",
+    "zh-HK-WanLungNeural":  "粤语 · 云龙 · 男声",
+    # —— 台湾 ——
+    "zh-TW-HsiaoChenNeural": "台湾 · 晓臻 · 女声",
+    "zh-TW-HsiaoYuNeural":   "台湾 · 晓雨 · 女声",
+    "zh-TW-YunJheNeural":    "台湾 · 云哲 · 男声",
 }
 
 JOBS = {}

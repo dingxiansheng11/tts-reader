@@ -18,21 +18,23 @@
     display:flex; flex-direction:column; overflow:hidden;
   }
   header{
-    display:flex; align-items:center; gap:14px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
     padding:12px 22px; border-bottom:1px solid var(--line);
     background:rgba(255,255,255,.6); flex:none;
   }
-  header h1{font-size:15px; font-weight:500; margin:0; letter-spacing:.5px;}
-  header .sub{font-size:12px; color:var(--ink3);}
+  @media (max-width:900px){ header .sub{display:none;} }
+  header h1{font-size:15px; font-weight:500; margin:0; letter-spacing:.5px; white-space:nowrap;}
+  header .sub{font-size:12px; color:var(--ink3); white-space:nowrap;}
   header .spacer{flex:1;}
   .ghost{
     border:1px solid var(--line); background:#fff; color:var(--ink2);
     border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer;
-    font-family:inherit; transition:.15s;
+    font-family:inherit; transition:.15s; white-space:nowrap; text-decoration:none;
+    display:inline-flex; align-items:center;
   }
   .ghost:hover{border-color:#cfc4b4; color:var(--ink);}
   .ghost:active{transform:translateY(1px);}
-  main{flex:1; min-height:0; display:flex; flex-direction:column;}
+  main{flex:1; min-height:0; display:flex; flex-direction:column; position:relative;}
 
   /* ---------- 输入视图 ---------- */
   #inputView{flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 22px 0;}
@@ -47,6 +49,8 @@
   }
   select:focus{border-color:var(--accent2);}
   .lab{font-size:12px; color:var(--ink3); margin-right:-4px;}
+  .switch{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink2); cursor:pointer; user-select:none;}
+  .switch input{accent-color:var(--accent); cursor:pointer; width:14px; height:14px;}
   .primary{
     margin-left:auto; border:none; border-radius:9px; cursor:pointer;
     background:var(--accent); color:#fff; font-family:inherit;
@@ -64,7 +68,7 @@
   #text:focus{border-color:#d9c9b4;}
   #text::placeholder{color:#b8afa4;}
   .foot{
-    display:flex; justify-content:space-between; align-items:center;
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
     font-size:12px; color:var(--ink3); padding:8px 2px 10px;
   }
   .warn{color:#b45309;}
@@ -88,10 +92,9 @@
   .s{cursor:pointer; border-radius:3px; transition:background .12s;}
   .s:hover{background:#f2ebdf;}
   .s.on{background:var(--hl); box-shadow:inset 0 -1px 0 #e3c48c;}
-  .s.on::before{content:""; }
   .playing-tip{
     max-width:720px; margin:0 auto 18px; font-size:12px; color:var(--ink3);
-    display:flex; justify-content:space-between;
+    display:flex; justify-content:space-between; gap:12px;
   }
 
   /* ---------- 播放条 ---------- */
@@ -138,6 +141,32 @@
   .reader::-webkit-scrollbar{width:9px;}
   .reader::-webkit-scrollbar-thumb{background:#ddd4c6; border-radius:5px;}
   .reader::-webkit-scrollbar-track{background:transparent;}
+
+  /* ---------- 历史面板 ---------- */
+  .mask{position:fixed; inset:0; background:rgba(36,33,29,.38); display:none;
+        z-index:50; align-items:center; justify-content:center; padding:24px;}
+  .mask.on{display:flex;}
+  .panel{background:#fff; border-radius:14px; width:min(660px,100%); max-height:76vh;
+         display:flex; flex-direction:column; overflow:hidden;
+         box-shadow:0 18px 50px rgba(0,0,0,.18);}
+  .panel-h{display:flex; align-items:center; justify-content:space-between;
+           padding:13px 18px; border-bottom:1px solid var(--line);}
+  .panel-h b{font-size:14px; font-weight:500;}
+  .panel-b{overflow-y:auto; padding:8px 10px 12px;}
+  .hrow{display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:10px;}
+  .hrow:hover{background:#faf6ef;}
+  .hrow .ht{flex:1; min-width:0;}
+  .hrow .hname{font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hrow .hmeta{font-size:11.5px; color:var(--ink3); margin-top:3px;}
+  .hrow .hact{display:flex; gap:6px; flex:none;}
+  .mini{border:1px solid var(--line); background:#fff; border-radius:7px;
+        padding:5px 9px; font-size:12px; color:var(--ink2); cursor:pointer;
+        font-family:inherit; transition:.15s;}
+  .mini:hover{border-color:#cfc4b4; color:var(--ink);}
+  .mini.now{border-color:var(--accent2); color:var(--accent);}
+  .empty{text-align:center; color:var(--ink3); font-size:13px; padding:36px 0; line-height:1.9;}
+  .panel-b::-webkit-scrollbar{width:9px;}
+  .panel-b::-webkit-scrollbar-thumb{background:#e2d9cb; border-radius:5px;}
 </style>
 </head>
 <body>
@@ -145,6 +174,8 @@
   <h1>长文朗读器</h1>
   <span class="sub">微软 Edge 语音 · 不限字数 · 支持高亮跟读</span>
   <div class="spacer"></div>
+  <button class="ghost" id="btnHist">历史</button>
+  <button class="ghost" id="btnNew" title="开一个新标签页，可以边听这篇边读另一篇">＋ 另开一篇</button>
   <button class="ghost" id="btnEdit" style="display:none">← 换个文本</button>
   <button class="ghost" id="fsMinus" title="字号变小">A-</button>
   <button class="ghost" id="fsPlus" title="字号变大">A+</button>
@@ -163,12 +194,15 @@
         <option value="+15%">稍快</option>
         <option value="+30%">很快</option>
       </select>
+      <label class="switch" title="去掉 ** # ` 这类 Markdown 符号，不让它被念出来">
+        <input type="checkbox" id="mdClean" checked> 清洗 Markdown 符号
+      </label>
       <button class="primary" id="btnGo">开始朗读</button>
     </div>
-    <textarea id="text" placeholder="在这里粘贴长文（两万字也没问题），点「开始朗读」。&#10;&#10;第一次听某篇文章需要等待合成，合成过的会自动缓存，再听秒开。"></textarea>
+    <textarea id="text" placeholder="在这里粘贴长文（两万字也没问题），点「开始朗读」。&#10;&#10;从 AI 对话框复制过来的 Markdown 也能直接用，** 和 # 会被自动去掉，不会被念出来。&#10;想同时听两篇，点右上角「＋ 另开一篇」。"></textarea>
     <div class="foot">
       <span id="count">0 字</span>
-      <span id="tip">快捷键：空格播放/暂停 · 点击任意句子跳转</span>
+      <span id="tip">空格播放/暂停 · 点击任意句子跳转 · 右上角可另开一篇同时听</span>
     </div>
   </div>
 
@@ -205,6 +239,16 @@
 
 <audio id="au" preload="auto"></audio>
 
+<div class="mask" id="histMask">
+  <div class="panel">
+    <div class="panel-h">
+      <b>最近的朗读</b>
+      <button class="ghost" id="histClose">关闭</button>
+    </div>
+    <div class="panel-b" id="histList"></div>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 const els = {
@@ -214,30 +258,185 @@ const els = {
   btnPlay:$('btnPlay'), prog:$('prog'), tCur:$('tCur'), tAll:$('tAll'),
   overlay:$('overlay'), ovMain:$('ovMain'), ovSub:$('ovSub'), ovBar:$('ovBar'),
   ovErr:$('ovErr'), ovHint:$('ovHint'), ring:$('ring'),
-  btnEdit:$('btnEdit'), btnDl:$('btnDl'), pbRate:$('pbRate'), metaInfo:$('metaInfo')
+  btnEdit:$('btnEdit'), btnDl:$('btnDl'), pbRate:$('pbRate'), metaInfo:$('metaInfo'),
+  mdClean:$('mdClean'), btnHist:$('btnHist'), btnNew:$('btnNew'),
+  histMask:$('histMask'), histList:$('histList'), histClose:$('histClose')
 };
 
 const FALLBACK_VOICES = {
-  "zh-CN-YunxiNeural":"云希 · 男声 · 自然亲和（默认）",
-  "zh-CN-XiaoxiaoNeural":"晓晓 · 女声 · 温柔清晰",
-  "zh-CN-YunyangNeural":"云扬 · 男声 · 新闻播报",
-  "zh-CN-XiaoyiNeural":"晓伊 · 女声 · 年轻活泼",
-  "zh-CN-YunjianNeural":"云健 · 男声 · 浑厚有力",
-  "zh-CN-YunxiaNeural":"云夏 · 男声 · 少年感"
+  "zh-CN-YunxiNeural":"普通话 · 云希 · 男声 · 自然亲和（默认）",
+  "zh-CN-XiaoxiaoNeural":"普通话 · 晓晓 · 女声 · 温柔清晰",
+  "zh-CN-YunyangNeural":"普通话 · 云扬 · 男声 · 新闻播报",
+  "zh-CN-XiaoyiNeural":"普通话 · 晓伊 · 女声 · 年轻活泼",
+  "zh-CN-YunjianNeural":"普通话 · 云健 · 男声 · 浑厚有力",
+  "zh-CN-YunxiaNeural":"普通话 · 云夏 · 男声 · 少年感"
 };
 
-let spans = [], lastIdx = -1, prevIdx = -1, pollTimer = null, pollStart = 0;
+let VOICES = {};
+let spans = [], lastIdx = -1, pollTimer = null, pollStart = 0;
 let userTouchAt = 0;
+let currentKey = '';
+let retried = false;
 
-/* ---------- 初始化 ---------- */
+/* ================= 工具函数 ================= */
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmt(sec){
+  if(!isFinite(sec) || sec < 0) sec = 0;
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+           : `${m}:${String(s).padStart(2,'0')}`;
+}
+function vname(k){
+  const t = VOICES[k] || FALLBACK_VOICES[k] || k;
+  const parts = t.split('·').map(x=>x.trim());
+  return parts[1] || parts[0];
+}
+
+/* ================= Markdown 清洗 ================= */
+function stripMd(src){
+  let t = String(src).replace(/\r\n?/g, '\n');
+  // 围栏代码块：保留里面的内容，去掉围栏那行
+  t = t.replace(/^[ \t]*```[^\n]*$/gm, '');
+  t = t.replace(/^[ \t]*~~~[^\n]*$/gm, '');
+  // 行内代码
+  t = t.replace(/`+([^`\n]+)`+/g, '$1');
+  // 图片 ![alt](url) → alt
+  t = t.replace(/!\[([^\]]*)\]\([^)\s]*(?:\s+"[^"]*")?\)/g, '$1');
+  // 链接 [text](url) → text
+  t = t.replace(/\[([^\]]+)\]\([^)\s]*(?:\s+"[^"]*")?\)/g, '$1');
+  // 引用块标记
+  t = t.replace(/^[ \t]{0,3}>[ \t]?/gm, '');
+  // ATX 标题
+  t = t.replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, '');
+  // 水平分割线
+  t = t.replace(/^[ \t]{0,3}([-*_])[ \t]*(?:\1[ \t]*){2,}$/gm, '');
+  // 表格对齐行 |---|:--:|
+  t = t.replace(/^[ \t]*\|?[ \t:|-]{3,}\|?[ \t:|-]*$/gm, '');
+  // 粗体 / 斜体 / 删除线（先长后短，避免 ** 被当成两个 *）
+  t = t.replace(/(\*\*\*|___)([^\n]+?)\1/g, '$2');
+  t = t.replace(/(\*\*|__)([^\n]+?)\1/g, '$2');
+  t = t.replace(/~~([^\n]+?)~~/g, '$1');
+  // 斜体：前后可能是中文、空白或中英标点（CJK 也纳入，否则「不是*目标*，」这种清不掉）
+  const CJK = '\\u4e00-\\u9fa5';
+  t = t.replace(new RegExp('(^|[\\s（(【「《，。、！？；：,.' + CJK + '])\\*([^*\\n]+?)\\*(?=[\\s）)】」》，。、！？；：,.' + CJK + ']|$)', 'g'), '$1$2');
+  t = t.replace(new RegExp('(^|[\\s（(【「《，。、！？；：,.' + CJK + '])_([^_\\n]+?)_(?=[\\s）)】」》，。、！？；：,.' + CJK + ']|$)', 'g'), '$1$2');
+  // 行首列表符号（- * + 1. 1)）
+  t = t.replace(/^[ \t]{0,3}[-*+][ \t]+/gm, '');
+  t = t.replace(/^[ \t]{0,3}\d{1,3}[.)][ \t]+/gm, '');
+  // 表格竖线
+  t = t.replace(/[ \t]*\|[ \t]*/g, ' ');
+  // 清掉多余空格（去掉竖线后常留下双空格和行首空格）
+  t = t.replace(/[ \t]{2,}/g, ' ').replace(/^[ \t]+|[ \t]+$/gm, '');
+  // HTML 标签
+  t = t.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+  // 常见 HTML 实体
+  t = t.replace(/&nbsp;/g, ' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  // 收尾：行尾空格、连续空行
+  t = t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
+/* ================= 历史记录 ================= */
+const HKEY = 'ra_hist_v1';
+const HMAX = 60;
+function histLoad(){
+  try{ const a = JSON.parse(localStorage.getItem(HKEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function histSave(list){
+  // localStorage 大约 5MB，超了就从最旧的开始丢正文
+  let json = JSON.stringify(list);
+  let i = list.length - 1;
+  while(json.length > 3_000_000 && i >= 0){
+    if(list[i].text){ list[i] = Object.assign({}, list[i], {text: undefined}); }
+    json = JSON.stringify(list);
+    i--;
+  }
+  try{ localStorage.setItem(HKEY, json); }
+  catch(e){
+    try{ localStorage.setItem(HKEY, JSON.stringify(list.slice(0, 10))); }catch(_){}
+  }
+}
+function histGet(key){ return histLoad().find(x => x.key === key); }
+function histAdd(item){
+  const list = histLoad().filter(x => x.key !== item.key);
+  list.unshift(item);
+  histSave(list.slice(0, HMAX));
+}
+function histDel(key){
+  histSave(histLoad().filter(x => x.key !== key));
+  histRender();
+}
+function titleOf(text){
+  const line = String(text).trim().split('\n').map(s=>s.trim()).find(s=>s.length) || '未命名';
+  return line.length > 40 ? line.slice(0, 40) + '…' : line;
+}
+function histRender(){
+  const list = histLoad();
+  if(!list.length){
+    els.histList.innerHTML = '<div class="empty">还没有记录。<br>读过的内容会自动存在这里，下次想重听点一下就开。</div>';
+    return;
+  }
+  els.histList.innerHTML = list.map(x=>{
+    const when = new Date(x.ts);
+    const d = `${when.getMonth()+1}/${when.getDate()} ${String(when.getHours()).padStart(2,'0')}:${String(when.getMinutes()).padStart(2,'0')}`;
+    return `<div class="hrow" data-key="${x.key}">
+      <div class="ht">
+        <div class="hname">${esc(x.title || '未命名')}</div>
+        <div class="hmeta">${(x.chars||0).toLocaleString()} 字 · ${fmt((x.duration||0)/1000)} · ${esc(vname(x.voice))} · ${d}</div>
+      </div>
+      <div class="hact">
+        <button class="mini play" data-key="${x.key}">重听</button>
+        <button class="mini newwin" data-key="${x.key}" title="在新标签页打开，可以两篇一起听">新窗口</button>
+        <button class="mini del" data-key="${x.key}" title="从历史里删掉">删</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+els.btnHist.onclick = ()=>{ histRender(); els.histMask.classList.add('on'); };
+els.histClose.onclick = ()=> els.histMask.classList.remove('on');
+els.histMask.addEventListener('click', e=>{ if(e.target === els.histMask) els.histMask.classList.remove('on'); });
+els.histList.addEventListener('click', e=>{
+  const b = e.target.closest('button');
+  if(!b) return;
+  const key = b.dataset.key;
+  if(b.classList.contains('del')){ histDel(key); return; }
+  els.histMask.classList.remove('on');
+  if(b.classList.contains('newwin')){
+    window.open(location.origin + '/?key=' + key, '_blank');
+  }else{
+    playKey(key);
+  }
+});
+
+/* ================= 初始化 ================= */
 (async function init(){
   let voices = FALLBACK_VOICES;
   try{
     const r = await fetch('/api/voices');
     if(r.ok) voices = await r.json();
   }catch(e){}
-  els.voice.innerHTML = Object.entries(voices)
-    .map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  VOICES = voices;
+
+  // 按「分组」生成 optgroup
+  const groups = new Map();
+  Object.entries(voices).forEach(([k,v])=>{
+    const g = (String(v).split('·')[0] || '其他').trim();
+    if(!groups.has(g)) groups.set(g, []);
+    groups.get(g).push([k, v]);
+  });
+  let html = '';
+  for(const [g, arr] of groups){
+    html += `<optgroup label="${esc(g)}">`;
+    for(const [k,v] of arr){
+      html += `<option value="${k}">${esc(v.replace(/^[^·]*·\s*/, ''))}</option>`;
+    }
+    html += '</optgroup>';
+  }
+  els.voice.innerHTML = html;
 
   const saved = localStorage.getItem('ra_text');
   if(saved) els.text.value = saved;
@@ -247,7 +446,29 @@ let userTouchAt = 0;
   if(sr) els.rate.value = sr;
   const fs = localStorage.getItem('ra_fs');
   if(fs) document.documentElement.style.setProperty('--fs', fs+'px');
+  // Markdown 清洗开关
+  const mc = localStorage.getItem('ra_md');
+  els.mdClean.checked = mc === null ? true : mc === '1';
+  // 播放倍速：读回上次的值并真正写进 audio
+  const pr = localStorage.getItem('ra_pbrate');
+  if(pr && [...els.pbRate.options].some(o=>o.value===pr)) els.pbRate.value = pr;
+  applyRate();
   updateCount();
+
+  // 深链：?key=xxx 直接进阅读视图
+  const q = new URLSearchParams(location.search);
+  const key = q.get('key');
+  if(key){
+    els.inputView.classList.add('off');
+    els.readView.classList.add('on');
+    els.btnEdit.style.display = '';
+    loadReady(key);
+  }else if(q.get('new') === '1'){
+    // 新开的另一篇，清空输入框，别被上一篇的正文带偏
+    els.text.value = '';
+    updateCount();
+    els.text.focus();
+  }
 })();
 
 els.text.addEventListener('input', ()=>{
@@ -257,6 +478,7 @@ els.text.addEventListener('input', ()=>{
 });
 els.voice.addEventListener('change', ()=>localStorage.setItem('ra_voice', els.voice.value));
 els.rate.addEventListener('change', ()=>localStorage.setItem('ra_rate', els.rate.value));
+els.mdClean.addEventListener('change', ()=>localStorage.setItem('ra_md', els.mdClean.checked ? '1' : '0'));
 
 $('fsPlus').onclick = ()=>setFs(1);
 $('fsMinus').onclick = ()=>setFs(-1);
@@ -276,45 +498,53 @@ function updateCount(){
   els.count.className = n > 40000 ? 'warn' : '';
 }
 
-/* ---------- 发起合成 ---------- */
-els.btnGo.onclick = ()=>{
-  const text = els.text.value.trim();
-  if(!text){ els.text.focus(); return; }
-  startSynth(text);
+/* ================= 另开一篇 ================= */
+els.btnNew.onclick = ()=>{
+  window.open(location.origin + '/?new=1', '_blank');
 };
 
-async function startSynth(text){
+/* ================= 发起合成 ================= */
+els.btnGo.onclick = ()=>{
+  const raw = els.text.value.trim();
+  if(!raw){ els.text.focus(); return; }
+  const text = els.mdClean.checked ? stripMd(raw) : raw;
+  if(!text){ showError('清洗之后没有剩下可读的文字，检查一下文本内容。'); return; }
+  startSynth(text, els.voice.value, els.rate.value);
+};
+
+async function startSynth(text, voice, rate){
+  retried = false;
   localStorage.setItem('ra_text', els.text.value);
   showOverlay('正在连接语音服务…', '');
   try{
     const r = await fetch('/api/synth', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({text, voice: els.voice.value, rate: els.rate.value})
+      body: JSON.stringify({text, voice, rate})
     });
     const j = await r.json();
     if(!r.ok) throw new Error(j.error || '请求失败');
-    if(j.cached){ await loadReady(j.key); return; }
+    if(j.cached){ await loadReady(j.key, text, voice, rate); return; }
     pollStart = Date.now();
-    pollJob(j.key, j.chars);
+    pollJob(j.key, j.chars, text, voice, rate);
   }catch(e){
     showError('合成失败：' + e.message);
   }
 }
 
-function pollJob(key, chars){
+function pollJob(key, chars, text, voice, rate){
   clearInterval(pollTimer);
   pollTimer = setInterval(async ()=>{
     try{
       const r = await fetch('/api/job?key=' + key);
       const j = await r.json();
-      if(j.state === 'ready'){ clearInterval(pollTimer); await loadReady(key); return; }
+      if(j.state === 'ready'){ clearInterval(pollTimer); await loadReady(key, text, voice, rate); return; }
       if(j.state === 'error'){ clearInterval(pollTimer); showError(j.err || '合成出错'); return; }
       const pct = j.total ? Math.round(j.done / j.total * 100) : 0;
       els.ovMain.textContent = `正在合成 ${j.done}/${j.total} 段`;
       els.ovBar.style.width = pct + '%';
       const elapsed = Math.round((Date.now() - pollStart)/1000);
-      els.ovSub.textContent = `已完成 ${pct}% · 已用 ${elapsed} 秒 · 共 ${chars.toLocaleString()} 字`;
+      els.ovSub.textContent = `已完成 ${pct}% · 已用 ${elapsed} 秒 · 共 ${(chars||0).toLocaleString()} 字`;
       els.ovHint.textContent = '合成完成后会自动开始播放，并逐句高亮';
     }catch(e){}
   }, 800);
@@ -340,26 +570,65 @@ function showError(msg){
   els.ovHint.textContent = '常见原因：网络中断、或微软接口临时限流。点「← 换个文本」返回后可再试一次。';
 }
 
-/* ---------- 加载并渲染 ---------- */
-async function loadReady(key){
-  const r = await fetch('/timings/' + key + '.json');
-  const data = await r.json();
+/* ================= 加载并渲染 ================= */
+function playKey(key){
+  els.histMask.classList.remove('on');
+  els.au.pause();
+  els.inputView.classList.add('off');
+  els.readView.classList.add('on');
+  els.btnEdit.style.display = '';
+  history.replaceState(null, '', '/?key=' + key);
+  loadReady(key);
+}
+
+async function loadReady(key, text, voice, rate){
+  currentKey = key;
+  let data = null;
+  try{
+    const r = await fetch('/timings/' + key + '.json');
+    if(r.ok) data = await r.json();
+  }catch(e){}
+
+  if(!data){
+    // 音频没了：如果历史里存过原文，就自动重新合成一次
+    const h = histGet(key);
+    if(h && h.text && !retried){
+      retried = true;
+      showOverlay('这篇的音频已被清理，正在重新合成…', '');
+      startSynth(h.text, h.voice || voice || els.voice.value, h.rate || rate || els.rate.value);
+      return;
+    }
+    showError('这篇的音频已经不在了（可能是缓存被清理或换了电脑）。返回后把原文重新粘一次即可。');
+    return;
+  }
+
   spans = data.spans || [];
   renderReader(data.text);
   els.au.src = '/audio/' + key + '.mp3';
   els.btnDl.href = '/audio/' + key + '.mp3?dl=1';
   els.tAll.textContent = fmt(data.duration/1000);
-  els.metaInfo.textContent = `${data.chars.toLocaleString()} 字 · ${fmt(data.duration/1000)} · ${els.voice.options[els.voice.selectedIndex].text.split(' ')[0]}`;
+  els.metaInfo.textContent = `${(data.chars||0).toLocaleString()} 字 · ${fmt(data.duration/1000)} · ${vname(data.voice)}`;
   els.overlay.classList.remove('on');
   els.inputView.classList.add('off');
   els.readView.classList.add('on');
   els.btnEdit.style.display = '';
   lastIdx = -1;
-  els.au.play().catch(()=>{});
-}
+  history.replaceState(null, '', '/?key=' + key);
 
-function esc(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // 记进历史
+  histAdd({
+    key,
+    title: titleOf(data.text || text || ''),
+    chars: data.chars || (data.text || '').length,
+    duration: data.duration || 0,
+    voice: data.voice || voice || '',
+    rate: data.rate || rate || '',
+    ts: Date.now(),
+    text: data.text || text || ''
+  });
+
+  applyRate();
+  els.au.play().catch(()=>{});
 }
 
 function renderReader(text){
@@ -394,14 +663,21 @@ function renderReader(text){
   els.paper.innerHTML = html;
 }
 
-/* ---------- 播放控制 ---------- */
-function fmt(sec){
-  if(!isFinite(sec) || sec < 0) sec = 0;
-  sec = Math.round(sec);
-  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
-  return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-           : `${m}:${String(s).padStart(2,'0')}`;
+/* ================= 播放控制 ================= */
+// 倍速：显示的值必须真的写进 audio，否则会出现「显示 1.5、实际 1.0」
+function applyRate(){
+  const v = parseFloat(els.pbRate.value) || 1;
+  try{ els.au.defaultPlaybackRate = v; }catch(e){}
+  try{ els.au.playbackRate = v; }catch(e){}
 }
+els.pbRate.onchange = ()=>{
+  applyRate();
+  localStorage.setItem('ra_pbrate', els.pbRate.value);
+};
+// 换音源、开始播放、元数据就绪之后都再写一次，防止被重置回 1.0
+els.au.addEventListener('loadedmetadata', applyRate);
+els.au.addEventListener('play', applyRate);
+els.au.addEventListener('playing', applyRate);
 
 els.btnPlay.onclick = ()=>{
   if(els.au.paused) els.au.play(); else els.au.pause();
@@ -409,7 +685,6 @@ els.btnPlay.onclick = ()=>{
 els.au.addEventListener('play', ()=>els.btnPlay.textContent = '❚❚');
 els.au.addEventListener('pause', ()=>els.btnPlay.textContent = '▶');
 els.au.addEventListener('ended', ()=>els.btnPlay.textContent = '↻');
-els.pbRate.onchange = ()=>els.au.playbackRate = parseFloat(els.pbRate.value);
 
 els.prog.addEventListener('input', ()=>{
   const d = els.au.duration;
@@ -423,7 +698,7 @@ els.au.addEventListener('timeupdate', ()=>{
     const p = cur/d;
     els.prog.value = Math.round(p*1000);
     els.prog.style.background = `linear-gradient(to right,var(--accent2) ${p*100}%,var(--line) ${p*100}%)`;
-    if(d > 0) els.tAll.textContent = fmt(d);
+    els.tAll.textContent = fmt(d);
   }
   highlight(cur);
 });
@@ -440,7 +715,7 @@ function highlight(sec){
   els.reader.querySelectorAll('.s.on').forEach(e=>e.classList.remove('on'));
   const list = els.reader.querySelectorAll(`[data-i="${ans}"]`);
   list.forEach(e=>e.classList.add('on'));
-  prevIdx = lastIdx; lastIdx = ans;
+  lastIdx = ans;
   if(list.length && Date.now() - userTouchAt > 5000){
     list[0].scrollIntoView({block:'center', behavior:'smooth'});
   }
@@ -457,7 +732,7 @@ els.reader.addEventListener('click', e=>{
 });
 
 document.addEventListener('keydown', e=>{
-  if(e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if(e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
   if(e.code === 'Space'){ e.preventDefault(); els.btnPlay.click(); }
 });
 
@@ -467,6 +742,7 @@ els.btnEdit.onclick = ()=>{
   els.inputView.classList.remove('off');
   els.btnEdit.style.display = 'none';
   els.overlay.classList.remove('on');
+  history.replaceState(null, '', '/');
   els.text.focus();
 };
 </script>
