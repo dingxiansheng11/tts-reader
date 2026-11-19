@@ -1,0 +1,21 @@
+# 合成缓存（含音频与时间轴，可随时清空）
+cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# 打包产物
+dist/
+build/
+*.zip
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,13 @@
+# 统一换行符：bat 必须 CRLF（cmd.exe 只认 CRLF），其余用 LF
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.py text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.mp3 binary
+*.jpg binary

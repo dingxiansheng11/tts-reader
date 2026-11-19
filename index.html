@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>长文朗读器</title>
+<style>
+  :root{
+    --bg:#f7f4ef; --card:#fff; --ink:#24211d; --ink2:#6b645c; --ink3:#9a9188;
+    --line:#e5ded3; --accent:#8a5a2b; --accent2:#a9703a;
+    --hl:#f9e6c4; --hlb:#d79a4e; --fs:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:14px;
+    padding:12px 22px; border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,.6); flex:none;
+  }
+  header h1{font-size:15px; font-weight:500; margin:0; letter-spacing:.5px;}
+  header .sub{font-size:12px; color:var(--ink3);}
+  header .spacer{flex:1;}
+  .ghost{
+    border:1px solid var(--line); background:#fff; color:var(--ink2);
+    border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer;
+    font-family:inherit; transition:.15s;
+  }
+  .ghost:hover{border-color:#cfc4b4; color:var(--ink);}
+  .ghost:active{transform:translateY(1px);}
+  main{flex:1; min-height:0; display:flex; flex-direction:column;}
+
+  /* ---------- 输入视图 ---------- */
+  #inputView{flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 22px 0;}
+  .toolbar{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+    padding-bottom:12px;
+  }
+  select{
+    font-family:inherit; font-size:13px; color:var(--ink);
+    background:#fff; border:1px solid var(--line); border-radius:8px;
+    padding:7px 10px; outline:none; cursor:pointer;
+  }
+  select:focus{border-color:var(--accent2);}
+  .lab{font-size:12px; color:var(--ink3); margin-right:-4px;}
+  .primary{
+    margin-left:auto; border:none; border-radius:9px; cursor:pointer;
+    background:var(--accent); color:#fff; font-family:inherit;
+    font-size:14px; padding:10px 26px; letter-spacing:1px;
+    transition:.15s;
+  }
+  .primary:hover{background:var(--accent2);}
+  .primary:disabled{background:#c9bdb0; cursor:not-allowed;}
+  #text{
+    flex:1; min-height:0; width:100%; resize:none;
+    border:1px solid var(--line); border-radius:12px; background:var(--card);
+    padding:20px 22px; font-family:inherit; font-size:16px; line-height:1.85;
+    color:var(--ink); outline:none;
+  }
+  #text:focus{border-color:#d9c9b4;}
+  #text::placeholder{color:#b8afa4;}
+  .foot{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; color:var(--ink3); padding:8px 2px 10px;
+  }
+  .warn{color:#b45309;}
+
+  /* ---------- 阅读视图 ---------- */
+  #readView{flex:1; min-height:0; display:none; flex-direction:column;}
+  #readView.on{display:flex;}
+  #inputView.off{display:none;}
+  .reader{
+    flex:1; min-height:0; overflow-y:auto; padding:34px 22px 40px;
+    scroll-behavior:smooth;
+  }
+  .paper{max-width:720px; margin:0 auto;}
+  .paper p{
+    margin:0 0 1.05em; font-size:var(--fs); line-height:1.95;
+    text-indent:2em; text-align:justify;
+    font-family:"Source Han Serif SC","Noto Serif SC","Songti SC",Georgia,serif;
+    color:#2c2823;
+  }
+  .paper p.cont{text-indent:0;}
+  .s{cursor:pointer; border-radius:3px; transition:background .12s;}
+  .s:hover{background:#f2ebdf;}
+  .s.on{background:var(--hl); box-shadow:inset 0 -1px 0 #e3c48c;}
+  .s.on::before{content:""; }
+  .playing-tip{
+    max-width:720px; margin:0 auto 18px; font-size:12px; color:var(--ink3);
+    display:flex; justify-content:space-between;
+  }
+
+  /* ---------- 播放条 ---------- */
+  .player{
+    flex:none; border-top:1px solid var(--line); background:rgba(255,255,255,.92);
+    padding:12px 22px; display:flex; align-items:center; gap:16px;
+  }
+  .pbtn{
+    width:44px; height:44px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--accent); color:#fff; font-size:15px; flex:none;
+    display:flex; align-items:center; justify-content:center; transition:.15s;
+  }
+  .pbtn:hover{background:var(--accent2);}
+  .time{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums; flex:none; width:46px;}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; height:4px; border-radius:2px;
+    background:var(--line); flex:1; outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--accent); cursor:pointer;
+  }
+  #prog{background:linear-gradient(to right,var(--accent2) 0%,var(--accent2) 0%,var(--line) 0%);}
+
+  /* ---------- 合成进度 ---------- */
+  #overlay{
+    position:absolute; inset:0; background:rgba(247,244,239,.96);
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    gap:18px; z-index:20;
+  }
+  #overlay.on{display:flex;}
+  .ring{
+    width:54px; height:54px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--accent);
+    animation:spin .9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .ovt{font-size:14px; color:var(--ink);}
+  .ovs{font-size:12px; color:var(--ink3);}
+  .bar{width:260px; height:4px; border-radius:2px; background:var(--line); overflow:hidden;}
+  .bar i{display:block; height:100%; width:0; background:var(--accent); transition:width .3s;}
+  .err{color:#a32d2d; font-size:13px; max-width:520px; text-align:center; line-height:1.7;}
+  .hint{font-size:11px; color:var(--ink3); text-align:center; line-height:1.8; max-width:520px;}
+  .reader::-webkit-scrollbar{width:9px;}
+  .reader::-webkit-scrollbar-thumb{background:#ddd4c6; border-radius:5px;}
+  .reader::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+<header>
+  <h1>长文朗读器</h1>
+  <span class="sub">微软 Edge 语音 · 不限字数 · 支持高亮跟读</span>
+  <div class="spacer"></div>
+  <button class="ghost" id="btnEdit" style="display:none">← 换个文本</button>
+  <button class="ghost" id="fsMinus" title="字号变小">A-</button>
+  <button class="ghost" id="fsPlus" title="字号变大">A+</button>
+</header>
+
+<main>
+  <div id="inputView">
+    <div class="toolbar">
+      <span class="lab">音色</span>
+      <select id="voice"></select>
+      <span class="lab">语速</span>
+      <select id="rate">
+        <option value="-25%">很慢</option>
+        <option value="-15%">稍慢</option>
+        <option value="+0%" selected>正常</option>
+        <option value="+15%">稍快</option>
+        <option value="+30%">很快</option>
+      </select>
+      <button class="primary" id="btnGo">开始朗读</button>
+    </div>
+    <textarea id="text" placeholder="在这里粘贴长文（两万字也没问题），点「开始朗读」。&#10;&#10;第一次听某篇文章需要等待合成，合成过的会自动缓存，再听秒开。"></textarea>
+    <div class="foot">
+      <span id="count">0 字</span>
+      <span id="tip">快捷键：空格播放/暂停 · 点击任意句子跳转</span>
+    </div>
+  </div>
+
+  <div id="readView">
+    <div class="reader" id="reader">
+      <div class="playing-tip"><span id="metaInfo"></span><span>点击句子可跳转</span></div>
+      <div class="paper" id="paper"></div>
+    </div>
+    <div class="player">
+      <button class="pbtn" id="btnPlay">▶</button>
+      <span class="time" id="tCur">0:00</span>
+      <input type="range" id="prog" min="0" max="1000" value="0">
+      <span class="time" id="tAll">0:00</span>
+      <select id="pbRate" title="播放速度">
+        <option value="0.75">0.75×</option>
+        <option value="1" selected>1.0×</option>
+        <option value="1.25">1.25×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2.0×</option>
+      </select>
+      <a class="ghost" id="btnDl" href="#" download>下载 MP3</a>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="ring" id="ring"></div>
+    <div class="ovt" id="ovMain">正在准备…</div>
+    <div class="bar"><i id="ovBar"></i></div>
+    <div class="ovs" id="ovSub"></div>
+    <div class="err" id="ovErr" style="display:none"></div>
+    <div class="hint" id="ovHint">两万字大约需要 2–5 分钟合成，期间可以先做别的</div>
+  </div>
+</main>
+
+<audio id="au" preload="auto"></audio>
+
+<script>
+const $ = id => document.getElementById(id);
+const els = {
+  text:$('text'), voice:$('voice'), rate:$('rate'), btnGo:$('btnGo'),
+  count:$('count'), inputView:$('inputView'), readView:$('readView'),
+  reader:$('reader'), paper:$('paper'), au:$('au'),
+  btnPlay:$('btnPlay'), prog:$('prog'), tCur:$('tCur'), tAll:$('tAll'),
+  overlay:$('overlay'), ovMain:$('ovMain'), ovSub:$('ovSub'), ovBar:$('ovBar'),
+  ovErr:$('ovErr'), ovHint:$('ovHint'), ring:$('ring'),
+  btnEdit:$('btnEdit'), btnDl:$('btnDl'), pbRate:$('pbRate'), metaInfo:$('metaInfo')
+};
+
+const FALLBACK_VOICES = {
+  "zh-CN-YunxiNeural":"云希 · 男声 · 自然亲和（默认）",
+  "zh-CN-XiaoxiaoNeural":"晓晓 · 女声 · 温柔清晰",
+  "zh-CN-YunyangNeural":"云扬 · 男声 · 新闻播报",
+  "zh-CN-XiaoyiNeural":"晓伊 · 女声 · 年轻活泼",
+  "zh-CN-YunjianNeural":"云健 · 男声 · 浑厚有力",
+  "zh-CN-YunxiaNeural":"云夏 · 男声 · 少年感"
+};
+
+let spans = [], lastIdx = -1, prevIdx = -1, pollTimer = null, pollStart = 0;
+let userTouchAt = 0;
+
+/* ---------- 初始化 ---------- */
+(async function init(){
+  let voices = FALLBACK_VOICES;
+  try{
+    const r = await fetch('/api/voices');
+    if(r.ok) voices = await r.json();
+  }catch(e){}
+  els.voice.innerHTML = Object.entries(voices)
+    .map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+
+  const saved = localStorage.getItem('ra_text');
+  if(saved) els.text.value = saved;
+  const sv = localStorage.getItem('ra_voice');
+  if(sv && voices[sv]) els.voice.value = sv;
+  const sr = localStorage.getItem('ra_rate');
+  if(sr) els.rate.value = sr;
+  const fs = localStorage.getItem('ra_fs');
+  if(fs) document.documentElement.style.setProperty('--fs', fs+'px');
+  updateCount();
+})();
+
+els.text.addEventListener('input', ()=>{
+  updateCount();
+  clearTimeout(els.text._t);
+  els.text._t = setTimeout(()=>localStorage.setItem('ra_text', els.text.value), 500);
+});
+els.voice.addEventListener('change', ()=>localStorage.setItem('ra_voice', els.voice.value));
+els.rate.addEventListener('change', ()=>localStorage.setItem('ra_rate', els.rate.value));
+
+$('fsPlus').onclick = ()=>setFs(1);
+$('fsMinus').onclick = ()=>setFs(-1);
+function setFs(d){
+  const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--fs')) || 18;
+  const nv = Math.min(26, Math.max(14, cur + d*2));
+  document.documentElement.style.setProperty('--fs', nv+'px');
+  localStorage.setItem('ra_fs', nv);
+}
+
+function updateCount(){
+  const n = els.text.value.length;
+  let s = n.toLocaleString() + ' 字';
+  if(n === 0) s = '0 字';
+  else if(n > 20000) s = n.toLocaleString() + ' 字 · 较长，合成需几分钟';
+  els.count.textContent = s;
+  els.count.className = n > 40000 ? 'warn' : '';
+}
+
+/* ---------- 发起合成 ---------- */
+els.btnGo.onclick = ()=>{
+  const text = els.text.value.trim();
+  if(!text){ els.text.focus(); return; }
+  startSynth(text);
+};
+
+async function startSynth(text){
+  localStorage.setItem('ra_text', els.text.value);
+  showOverlay('正在连接语音服务…', '');
+  try{
+    const r = await fetch('/api/synth', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text, voice: els.voice.value, rate: els.rate.value})
+    });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error || '请求失败');
+    if(j.cached){ await loadReady(j.key); return; }
+    pollStart = Date.now();
+    pollJob(j.key, j.chars);
+  }catch(e){
+    showError('合成失败：' + e.message);
+  }
+}
+
+function pollJob(key, chars){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async ()=>{
+    try{
+      const r = await fetch('/api/job?key=' + key);
+      const j = await r.json();
+      if(j.state === 'ready'){ clearInterval(pollTimer); await loadReady(key); return; }
+      if(j.state === 'error'){ clearInterval(pollTimer); showError(j.err || '合成出错'); return; }
+      const pct = j.total ? Math.round(j.done / j.total * 100) : 0;
+      els.ovMain.textContent = `正在合成 ${j.done}/${j.total} 段`;
+      els.ovBar.style.width = pct + '%';
+      const elapsed = Math.round((Date.now() - pollStart)/1000);
+      els.ovSub.textContent = `已完成 ${pct}% · 已用 ${elapsed} 秒 · 共 ${chars.toLocaleString()} 字`;
+      els.ovHint.textContent = '合成完成后会自动开始播放，并逐句高亮';
+    }catch(e){}
+  }, 800);
+}
+
+function showOverlay(main, sub){
+  els.overlay.classList.add('on');
+  els.ring.style.display = 'block';
+  els.ovBar.parentElement.style.display = 'block';
+  els.ovErr.style.display = 'none';
+  els.ovMain.textContent = main;
+  els.ovSub.textContent = sub || '';
+  els.ovHint.style.display = 'block';
+}
+function showError(msg){
+  els.overlay.classList.add('on');
+  els.ring.style.display = 'none';
+  els.ovBar.parentElement.style.display = 'none';
+  els.ovErr.style.display = 'block';
+  els.ovMain.textContent = '没有成功';
+  els.ovSub.textContent = '';
+  els.ovErr.textContent = msg;
+  els.ovHint.textContent = '常见原因：网络中断、或微软接口临时限流。点「← 换个文本」返回后可再试一次。';
+}
+
+/* ---------- 加载并渲染 ---------- */
+async function loadReady(key){
+  const r = await fetch('/timings/' + key + '.json');
+  const data = await r.json();
+  spans = data.spans || [];
+  renderReader(data.text);
+  els.au.src = '/audio/' + key + '.mp3';
+  els.btnDl.href = '/audio/' + key + '.mp3?dl=1';
+  els.tAll.textContent = fmt(data.duration/1000);
+  els.metaInfo.textContent = `${data.chars.toLocaleString()} 字 · ${fmt(data.duration/1000)} · ${els.voice.options[els.voice.selectedIndex].text.split(' ')[0]}`;
+  els.overlay.classList.remove('on');
+  els.inputView.classList.add('off');
+  els.readView.classList.add('on');
+  els.btnEdit.style.display = '';
+  lastIdx = -1;
+  els.au.play().catch(()=>{});
+}
+
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderReader(text){
+  const paras = [];
+  let s = 0, i = 0;
+  const push = (a, b) => {
+    if(b > a && text.slice(a, b).trim())
+      paras.push({s:a, e:b, cont: a > 0 && text[a-1] !== '\n'});
+  };
+  while(i < text.length){
+    const ch = text[i];
+    if(ch === '\n'){ push(s, i); s = i + 1; }
+    else if(i - s >= 400 && /[。！？!?；;]/.test(text[i-1])){ push(s, i); s = i; }
+    i++;
+  }
+  push(s, text.length);
+  let html = '', k = 0;
+  for(const p of paras){
+    while(k < spans.length && spans[k].e <= p.s) k++;
+    let cur = p.s, j = k, inner = '';
+    while(j < spans.length && spans[j].s < p.e){
+      const sp = spans[j];
+      const ss = Math.max(sp.s, p.s), se = Math.min(sp.e, p.e);
+      if(ss > cur) inner += esc(text.slice(cur, ss));
+      if(se > ss) inner += `<span class="s" data-i="${j}">${esc(text.slice(ss, se))}</span>`;
+      cur = Math.max(cur, se);
+      j++;
+    }
+    if(cur < p.e) inner += esc(text.slice(cur, p.e));
+    html += `<p${p.cont ? ' class="cont"' : ''}>` + inner + '</p>';
+  }
+  els.paper.innerHTML = html;
+}
+
+/* ---------- 播放控制 ---------- */
+function fmt(sec){
+  if(!isFinite(sec) || sec < 0) sec = 0;
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+           : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+els.btnPlay.onclick = ()=>{
+  if(els.au.paused) els.au.play(); else els.au.pause();
+};
+els.au.addEventListener('play', ()=>els.btnPlay.textContent = '❚❚');
+els.au.addEventListener('pause', ()=>els.btnPlay.textContent = '▶');
+els.au.addEventListener('ended', ()=>els.btnPlay.textContent = '↻');
+els.pbRate.onchange = ()=>els.au.playbackRate = parseFloat(els.pbRate.value);
+
+els.prog.addEventListener('input', ()=>{
+  const d = els.au.duration;
+  if(isFinite(d) && d > 0) els.au.currentTime = d * (els.prog.value/1000);
+});
+
+els.au.addEventListener('timeupdate', ()=>{
+  const cur = els.au.currentTime, d = els.au.duration;
+  els.tCur.textContent = fmt(cur);
+  if(isFinite(d) && d > 0){
+    const p = cur/d;
+    els.prog.value = Math.round(p*1000);
+    els.prog.style.background = `linear-gradient(to right,var(--accent2) ${p*100}%,var(--line) ${p*100}%)`;
+    if(d > 0) els.tAll.textContent = fmt(d);
+  }
+  highlight(cur);
+});
+
+function highlight(sec){
+  if(!spans.length) return;
+  const ms = sec * 1000;
+  let lo = 0, hi = spans.length - 1, ans = 0;
+  while(lo <= hi){
+    const m = (lo + hi) >> 1;
+    if(spans[m].t <= ms){ ans = m; lo = m + 1; } else hi = m - 1;
+  }
+  if(ans === lastIdx) return;
+  els.reader.querySelectorAll('.s.on').forEach(e=>e.classList.remove('on'));
+  const list = els.reader.querySelectorAll(`[data-i="${ans}"]`);
+  list.forEach(e=>e.classList.add('on'));
+  prevIdx = lastIdx; lastIdx = ans;
+  if(list.length && Date.now() - userTouchAt > 5000){
+    list[0].scrollIntoView({block:'center', behavior:'smooth'});
+  }
+}
+
+els.reader.addEventListener('wheel', ()=>userTouchAt = Date.now(), {passive:true});
+els.reader.addEventListener('touchstart', ()=>userTouchAt = Date.now(), {passive:true});
+
+els.reader.addEventListener('click', e=>{
+  const t = e.target.closest('.s');
+  if(!t) return;
+  const i = +t.dataset.i;
+  if(spans[i]) els.au.currentTime = spans[i].t / 1000 + 0.01;
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if(e.code === 'Space'){ e.preventDefault(); els.btnPlay.click(); }
+});
+
+els.btnEdit.onclick = ()=>{
+  els.au.pause();
+  els.readView.classList.remove('on');
+  els.inputView.classList.remove('off');
+  els.btnEdit.style.display = 'none';
+  els.overlay.classList.remove('on');
+  els.text.focus();
+};
+</script>
+</body>
+</html>
