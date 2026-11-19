@@ -56,7 +56,13 @@ import edge_tts  # noqa: E402
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(BASE, "cache")
-os.makedirs(CACHE, exist_ok=True)
+try:
+    os.makedirs(CACHE, exist_ok=True)
+except OSError:
+    # 有的托管环境源码目录是只读的，退回系统临时目录
+    import tempfile
+    CACHE = os.path.join(tempfile.gettempdir(), "readaloud-cache")
+    os.makedirs(CACHE, exist_ok=True)
 
 TICKS_PER_SEC = 10_000_000          # edge 的时间戳单位：100 纳秒
 AUDIO_BYTES_PER_SEC = 48_000 / 8    # 48kbps CBR → 每秒 6000 字节
@@ -453,6 +459,20 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
     except Exception:                                   # noqa: BLE001
         pass
+
+    # ---------- 云端托管模式 ----------
+    # 托管平台会注入 PORT，并要求绑定 0.0.0.0；也没有人手去点浏览器
+    env_port = os.environ.get("PORT")
+    if env_port:
+        port = int(env_port)
+        srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+        srv.daemon_threads = True
+        print(f"长文朗读器（云端）已启动：0.0.0.0:{port}", flush=True)
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        return
 
     # 已经有一个在跑：直接把页面打开，不再起第二个
     for p in range(8731, 8741):
