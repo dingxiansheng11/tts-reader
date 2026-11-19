@@ -108,6 +108,13 @@ offset/duration 单位是 100 纳秒（`28625000` = 2.8625 秒）。网上旧教
 
 **多标签并行不需要服务端配合。** 每个标签页有自己的 `<audio>`，服务端只按内容哈希提供静态音频。要让「同时听两篇」成立，只需要保证 UI 状态不跨标签共享（除 `localStorage` 里的偏好），以及朗读页可由 `?key=` 直接进入。
 
+**移动端三条硬坑（1.3.0 踩过，别回退）：**
+1. **iPhone/安卓不允许「非手势」自动播放。** 音频是服务器合成完才回来的，那时用户的手指早抬起来了，`audio.play()` 返回 rejected promise，而 `.catch(()=>{})` 会把错误吞掉——表现是「界面正常、就是没声音」，极难排查。做法：捕获 rejection，置 `pendingPlay` 标记，在 `document` 上挂一次性的 `touchstart`/`click` 监听，用户下一次碰屏幕就接着播，同时在界面明示「点 ▶ 开始放音」。**永远不要静默吞掉 `play()` 的 rejection。**
+2. **`height:100%` 在手机浏览器上算的是「布局视口」，地址栏收起时不更新**，底部播放条会被顶到可见区外。用 `@supports (height:100dvh)` 覆盖成 `100dvh`。
+3. **表单控件字号 < 16px 会被 iOS Safari 强制放大整页**（`select`、`input`、`textarea` 都算）。窄屏下这几个必须 ≥ 16px，或者用 `transform:scale` 之类规避——但设 16px 最省事。
+
+窄屏（≤600px）还要注意：播放条 6 个元素一行放不下，必须 `flex-wrap` 并把倍速/下载挤到第二行；否则右侧控件被 `overflow:hidden` 直接裁掉，用户根本看不到（用 `document.documentElement.scrollWidth > clientWidth` 就能查出来）。
+
 ## 验收标准
 
 改完代码按这三条验，不达标就是有 bug：

@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>长文朗读器</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238a5a2b'/%3E%3Cpath d='M9 13h4l5-4v14l-5-4H9z' fill='%23fff'/%3E%3Cpath d='M21 12.5a5 5 0 0 1 0 7' stroke='%23fff' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#f7f4ef">
 <style>
   :root{
     --bg:#f7f4ef; --card:#fff; --ink:#24211d; --ink2:#6b645c; --ink3:#9a9188;
@@ -12,6 +14,9 @@
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
+  /* 手机浏览器的地址栏会伸缩，100% 有时候算错，底部播放条会被挡在屏幕外。
+     100dvh 是「真实可见高度」，支持的浏览器就用它。 */
+  @supports (height:100dvh){ html,body{height:100dvh;} }
   body{
     background:var(--bg); color:var(--ink);
     font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif;
@@ -71,6 +76,8 @@
     display:flex; justify-content:space-between; align-items:center; gap:12px;
     font-size:12px; color:var(--ink3); padding:8px 2px 10px;
   }
+  .foot #count{flex:none; white-space:nowrap;}
+  .foot #tip{min-width:0; text-align:right;}
   .warn{color:#b45309;}
 
   /* ---------- 阅读视图 ---------- */
@@ -167,6 +174,37 @@
   .empty{text-align:center; color:var(--ink3); font-size:13px; padding:36px 0; line-height:1.9;}
   .panel-b::-webkit-scrollbar{width:9px;}
   .panel-b::-webkit-scrollbar-thumb{background:#e2d9cb; border-radius:5px;}
+
+  /* ---------- 手机屏（窄屏） ---------- */
+  @media (max-width:600px){
+    header{padding:9px 12px; gap:7px;}
+    header h1{font-size:14px;}
+    .ghost{padding:6px 9px; font-size:12.5px;}
+    /* 手机浏览器同一时间只会响一个标签页，「另开一篇」在手机上没用，收起来 */
+    #btnNew{display:none;}
+
+    #inputView{padding:12px 12px 0;}
+    .toolbar{gap:8px; padding-bottom:10px;}
+    /* 手机上字号小于 16px 的输入框一旦被点，Safari 会自动放大整页，很烦 */
+    select, #text{font-size:16px;}
+    /* 音色名很长，不限宽会把「语速」挤到下一行还跟它的下拉框分家 */
+    #voice{max-width:198px;}
+    .lab{margin-right:0;}
+    #text{padding:14px 15px;}
+    .foot{font-size:11px; gap:8px;}
+    .foot #tip{display:none;}          /* 提示语在手机上挤，去掉，主按钮够明显 */
+    .primary{padding:10px 20px; font-size:14px;}
+
+    .reader{padding:18px 15px 30px;}
+    .playing-tip{font-size:11.5px; margin-bottom:12px;}
+
+    /* 播放条：一行塞不下 6 个东西，进度条留在第一行，倍速和下载换到第二行靠右 */
+    .player{flex-wrap:wrap; gap:8px 10px; padding:9px 12px 11px;}
+    .pbtn{width:40px; height:40px; font-size:14px;}
+    .time{width:auto; min-width:36px; font-size:11.5px; text-align:center;}
+    #prog{flex:1; min-width:80px;}
+    #pbRate{margin-left:auto;}
+  }
 </style>
 </head>
 <body>
@@ -440,6 +478,11 @@ els.histList.addEventListener('click', e=>{
 
   const saved = localStorage.getItem('ra_text');
   if(saved) els.text.value = saved;
+  // 手机上没有「另开一篇」按钮，提示语就不要提它
+  if(innerWidth <= 600){
+    els.text.placeholder = '在这里粘贴长文（两万字也没问题），点「开始朗读」。\n\n'
+      + '从 AI 对话框复制过来的 Markdown 也能直接用，** 和 # 会被自动去掉，不会被念出来。';
+  }
   const sv = localStorage.getItem('ra_voice');
   if(sv && voices[sv]) els.voice.value = sv;
   const sr = localStorage.getItem('ra_rate');
@@ -607,7 +650,8 @@ async function loadReady(key, text, voice, rate){
   els.au.src = '/audio/' + key + '.mp3';
   els.btnDl.href = '/audio/' + key + '.mp3?dl=1';
   els.tAll.textContent = fmt(data.duration/1000);
-  els.metaInfo.textContent = `${(data.chars||0).toLocaleString()} 字 · ${fmt(data.duration/1000)} · ${vname(data.voice)}`;
+  metaBase = `${(data.chars||0).toLocaleString()} 字 · ${fmt(data.duration/1000)} · ${vname(data.voice)}`;
+  els.metaInfo.textContent = metaBase;
   els.overlay.classList.remove('on');
   els.inputView.classList.add('off');
   els.readView.classList.add('on');
@@ -628,7 +672,29 @@ async function loadReady(key, text, voice, rate){
   });
 
   applyRate();
-  els.au.play().catch(()=>{});
+  tryPlay();
+}
+
+/* 手机上（尤其 iPhone）浏览器只允许「用户手指点下去的那一刻」开始放音。
+   我们的声音是服务器合成完才回来的，那时候手指早就抬起来了，所以会被拦。
+   被拦下不报错，只是没声音——所以这里记一笔，等用户下一次碰屏幕再接上。 */
+let pendingPlay = false, metaBase = '';
+function tryPlay(base){
+  if(base !== undefined) metaBase = base;
+  const pr = els.au.play();
+  if(pr && pr.catch) pr.catch(()=>{ pendingPlay = true; markNeedTap(); });
+}
+function markNeedTap(){
+  if(!pendingPlay) return;
+  els.btnPlay.textContent = '▶';
+  els.metaInfo.textContent = metaBase + ' · 点下面的 ▶ 开始放音';
+}
+function flushPending(){
+  if(!pendingPlay) return;
+  pendingPlay = false;
+  els.metaInfo.textContent = metaBase;
+  const pr = els.au.play();
+  if(pr && pr.catch) pr.catch(()=>{ pendingPlay = true; markNeedTap(); });
 }
 
 function renderReader(text){
@@ -680,8 +746,12 @@ els.au.addEventListener('play', applyRate);
 els.au.addEventListener('playing', applyRate);
 
 els.btnPlay.onclick = ()=>{
-  if(els.au.paused) els.au.play(); else els.au.pause();
+  if(els.au.paused){ pendingPlay = false; els.metaInfo.textContent = metaBase; els.au.play().catch(()=>{}); }
+  else els.au.pause();
 };
+// 上一次自动放音被浏览器拦了的话，用户随便点一下屏幕就接上
+document.addEventListener('touchstart', flushPending, {passive:true});
+document.addEventListener('click', flushPending);
 els.au.addEventListener('play', ()=>els.btnPlay.textContent = '❚❚');
 els.au.addEventListener('pause', ()=>els.btnPlay.textContent = '▶');
 els.au.addEventListener('ended', ()=>els.btnPlay.textContent = '↻');
