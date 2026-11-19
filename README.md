@@ -13,6 +13,23 @@
 
 ---
 
+## 下载（最省事的方式）
+
+不用 git、不用命令行，点一下就下载：
+
+**[⬇ 下载压缩包](https://github.com/dingxiansheng11/tts-reader/archive/refs/heads/main.zip)**
+
+解压，然后：
+
+- **Windows**：双击 `start.bat`
+- **macOS / Linux**：在终端里执行 `bash start.sh`
+
+第一次运行会自动装依赖，装完浏览器自己弹出来。以后每次都是双击同一个文件。
+
+> 前提：这台电脑要有 Python 3.10 或更新版本。没装的话，`start.bat` 会直接把下载地址告诉你，不会一闪而过。
+
+---
+
 ## 为什么做这个
 
 看长文字容易累，听就轻松得多。但现成的在线朗读站几乎都有字数上限——那是它们的排队规则，不是技术限制。
@@ -38,23 +55,30 @@
 
 ## 快速开始
 
-### Windows
+### 方式一：解压就用（推荐）
+
+下载压缩包 → 解压到任意目录 → 双击 `start.bat`（macOS / Linux 用 `bash start.sh`）。
+
+依赖会自动装。装好后浏览器会打开 `http://127.0.0.1:8731/`，端口被占用会自动顺延。
+
+### 方式二：装到固定目录
+
+适合想固定路径的情况：
 
 ```bash
-git clone <this-repo> && cd tts-reader
+git clone https://github.com/dingxiansheng11/tts-reader.git
+cd tts-reader
 python scripts/install.py --target "D:/Tools/TTSReader"
 ```
 
-然后双击 `D:/Tools/TTSReader/start.bat`，浏览器会自动打开。
+之后双击 `D:/Tools/TTSReader/start.bat` 即可。
 
-### 手动
+### 方式三：只想跑起来看看
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
-
-默认地址 `http://127.0.0.1:8731/`，端口被占用会自动顺延。
 
 ### 用法
 

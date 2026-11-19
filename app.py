@@ -20,7 +20,39 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-import edge_tts
+# ---------- 依赖自举：第一次双击也能跑起来 ----------
+def _ensure_edge_tts():
+    try:
+        import edge_tts  # noqa: F401
+        return
+    except ImportError:
+        pass
+    print("[首次运行] 缺少依赖 edge-tts，正在自动安装，大约 10-30 秒……", flush=True)
+    mirrors = [
+        ["-i", "https://mirrors.aliyun.com/pypi/simple/"],
+        ["-i", "https://pypi.tuna.tsinghua.edu.cn/simple"],
+        [],
+    ]
+    for extra in mirrors:
+        cmd = [sys.executable, "-m", "pip", "install", "edge-tts>=7.0,<8"] + extra
+        try:
+            if subprocess.call(cmd) == 0:
+                break
+        except Exception:
+            pass
+    try:
+        import edge_tts  # noqa: F401
+    except ImportError:
+        print()
+        print("[错误] 自动安装没成功。请打开命令行，手动执行这一句：")
+        print("    pip install edge-tts -i https://mirrors.aliyun.com/pypi/simple/")
+        print()
+        sys.exit(1)
+
+
+_ensure_edge_tts()
+
+import edge_tts  # noqa: E402
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(BASE, "cache")
